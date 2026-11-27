@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="WCW点单">
 <title>Wei Chong Wei 点单</title>
@@ -83,6 +83,10 @@ pre.rc{background:#fff;color:#111;font:600 16px/1.45 Menlo,Courier,monospace;pad
 #printArea{display:none}
 @media (max-width:900px){.app{display:block;height:auto}.cats{width:auto;display:flex;overflow-x:auto;border-right:0}.cats button{flex:none;width:auto;border-bottom:0;border-right:1px solid var(--line)}.ticket{width:auto;border-left:0;border-top:2px solid var(--line)}.lines{max-height:none}.top input{width:150px}}
 @media print{body>*{display:none!important}#printArea{display:block!important;font:600 13px/1.4 Menlo,Courier,monospace;white-space:pre-wrap;color:#000}}
+
+html,body,button,input,.dish,.cats{touch-action:manipulation}
+body{-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text}
 </style>
 </head>
 <body>
@@ -199,6 +203,8 @@ var hArm=0;$('hClear').onclick=function(){if(Date.now()-hArm<2500){day={date:tod
 var sh=document.querySelectorAll('.sheet');for(var i=0;i<sh.length;i++)sh[i].addEventListener('click',function(e){if(e.target===this)closeSheets()});
 drawCats();drawDishes();drawOrder();
 })();
+
+;(function(){var last=0;document.addEventListener("touchend",function(e){var now=Date.now();if(now-last<350&&!(e.target&&e.target.tagName==="INPUT")){e.preventDefault();var t=e.target.closest?e.target.closest("button"):null;if(t)t.click();}last=now;},{passive:false});document.addEventListener("gesturestart",function(e){e.preventDefault()});})();
 </script>
 </body>
 </html>
