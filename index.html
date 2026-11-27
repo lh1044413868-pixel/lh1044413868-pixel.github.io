@@ -77,7 +77,8 @@ button{cursor:pointer;border:0;background:none;padding:0}
 .close{margin-top:14px;width:100%;min-height:48px;border-radius:10px;background:var(--soft);font-weight:600}
 pre.rc{background:#fff;color:#111;font:600 16px/1.45 Menlo,Courier,monospace;padding:16px;border-radius:8px;white-space:pre-wrap;border:1px solid #ccc;margin:0 0 12px;-webkit-user-select:text;user-select:text}
 .hist{font-size:15px}
-.hist div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.hist div,.hist .hrow{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:52px;padding:8px 4px;border-bottom:1px solid var(--line);text-align:left;font-size:16px}
+.hist .hrow b{white-space:nowrap;margin-left:10px}
 .toast{position:fixed;left:50%;bottom:20px;-webkit-transform:translateX(-50%);transform:translateX(-50%);background:var(--g);color:#fff;padding:10px 18px;border-radius:10px;font-weight:600;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s;pointer-events:none;z-index:10}
 .toast.on{opacity:1}
 #printArea{display:none}
@@ -117,6 +118,7 @@ input{-webkit-user-select:text;user-select:text}
 </main>
 <div class="sheet" id="optSheet"><div class="box"><h3 id="optT"></h3><p id="optE"></p><div class="opts" id="opts"></div><button class="close" data-close="1">取消</button></div></div>
 <div class="sheet" id="rcSheet"><div class="box"><pre class="rc" id="rc"></pre><div class="acts"><button class="btn sec" id="print">打印小票</button><button class="btn sec" id="copy">复制小票</button><button class="btn pri" id="next">下一单</button></div><button class="close" data-close="1">返回修改</button></div></div>
+<div class="sheet" id="dSheet"><div class="box"><pre class="rc" id="drc"></pre><div class="acts"><button class="btn sec" id="dprint">打印这张</button><button class="btn sec" id="dcopy">复制这张</button></div><button class="close" id="dback">返回今日单子</button></div></div>
 <div class="sheet" id="hSheet"><div class="box"><h3>今日单子</h3><p id="hSum"></p><div class="hist" id="hList"></div><button class="close" id="hClear" style="background:none;color:var(--r)">清除今日记录</button><button class="close" data-close="1">关闭</button></div></div>
 <div class="toast" id="toast"></div>
 <div id="printArea"></div>
@@ -192,13 +194,17 @@ $('taxOn').addEventListener('change',taxChanged);$('taxRate').addEventListener('
 $('undo').onclick=function(){if(!order.length)return;var l=order[order.length-1];l.n--;if(l.n<1)order.pop();save();drawOrder()};
 var clearArm=0;$('clear').onclick=function(){if(!order.length)return;if(Date.now()-clearArm<2500){order=[];$('cust').value='';$('phone').value='';save();drawOrder();toast('已清空')}else{clearArm=Date.now();toast('再按一次「清空」确认')}};
 $('done').onclick=function(){if(!order.length){toast('还没点菜');return}$('rc').textContent=receipt();openSheet('rcSheet')};
-$('next').onclick=function(){var t=totals(),n=0;order.forEach(function(l){n+=l.n});day.orders.push({no:day.no,time:timeStr(),cust:$('cust').value.trim(),phone:$('phone').value.trim(),total:t.tot,items:n});day.no++;store.set('wcw-day',day);order=[];$('cust').value='';$('phone').value='';save();closeSheets();drawOrder();toast('已保存，开始下一单')};
+$('next').onclick=function(){var t=totals(),n=0;order.forEach(function(l){n+=l.n});day.orders.push({no:day.no,time:timeStr(),cust:$('cust').value.trim(),phone:$('phone').value.trim(),total:t.tot,items:n,rc:$('rc').textContent,lines:JSON.parse(JSON.stringify(order))});day.no++;store.set('wcw-day',day);order=[];$('cust').value='';$('phone').value='';save();closeSheets();drawOrder();toast('已保存，开始下一单')};
 $('print').onclick=function(){$('printArea').textContent=$('rc').textContent;window.print()};
 $('copy').onclick=function(){var ta=document.createElement('textarea');ta.value=$('rc').textContent;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.top='0';ta.style.opacity='0';document.body.appendChild(ta);
  var ok=false;try{var r=document.createRange();r.selectNodeContents(ta);var s=window.getSelection();s.removeAllRanges();s.addRange(r);ta.setSelectionRange(0,999999);ok=document.execCommand('copy')}catch(e){}
  document.body.removeChild(ta);toast(ok?'已复制':'复制不了，请长按小票选择复制')};
 $('histBtn').onclick=function(){var sum=0;day.orders.forEach(function(o){sum+=o.total});$('hSum').textContent=day.date+' · '+day.orders.length+' 单 · 共 '+money(sum);
- $('hList').innerHTML=day.orders.length?day.orders.slice().reverse().map(function(o){return '<div><span>#'+o.no+' · '+esc(o.time)+(o.cust?' · '+esc(o.cust):'')+(o.phone?' · '+esc(o.phone):'')+' · '+o.items+' 样</span><b>'+money(o.total)+'</b></div>'}).join(''):'<p class="empty">今天还没有单子</p>';openSheet('hSheet')};
+ $('hList').innerHTML=day.orders.length?day.orders.slice().reverse().map(function(o){return '<button class="hrow" data-h="'+day.orders.indexOf(o)+'"><span>#'+o.no+' · '+esc(o.time)+(o.cust?' · '+esc(o.cust):'')+(o.phone?' · '+esc(o.phone):'')+' · '+o.items+' 样 ›</span><b>'+money(o.total)+'</b></button>'}).join(''):'<p class="empty">今天还没有单子</p>';openSheet('hSheet')};
+$('hList').addEventListener('click',function(e){var b=e.target;while(b&&b!==this&&!(b.getAttribute&&b.getAttribute('data-h')!==null))b=b.parentNode;if(!b||b===this)return;var o=day.orders[+b.getAttribute('data-h')];if(!o)return;$('drc').textContent=o.rc||('单号 #'+o.no+' · '+o.time+'\n'+(o.cust?'客人: '+o.cust+'\n':'')+(o.phone?'电话: '+o.phone+'\n':'')+'共 '+o.items+' 样 · '+money(o.total)+'\n\n（这张是更新前存的单子，没有菜品明细）');closeSheets();openSheet('dSheet')});
+$('dback').onclick=function(){closeSheets();$('histBtn').onclick()};
+$('dprint').onclick=function(){$('printArea').textContent=$('drc').textContent;window.print()};
+$('dcopy').onclick=function(){var ta=document.createElement('textarea');ta.value=$('drc').textContent;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.top='0';ta.style.opacity='0';document.body.appendChild(ta);var ok=false;try{var r=document.createRange();r.selectNodeContents(ta);var sl=window.getSelection();sl.removeAllRanges();sl.addRange(r);ta.setSelectionRange(0,999999);ok=document.execCommand('copy')}catch(err){}document.body.removeChild(ta);toast(ok?'已复制':'复制不了，请长按小票选择复制')};
 var hArm=0;$('hClear').onclick=function(){if(Date.now()-hArm<2500){day={date:today,no:1,orders:[]};store.set('wcw-day',day);closeSheets();drawOrder();toast('今日记录已清除')}else{hArm=Date.now();toast('再按一次确认清除')}};
 var sh=document.querySelectorAll('.sheet');for(var i=0;i<sh.length;i++)sh[i].addEventListener('click',function(e){if(e.target===this)closeSheets()});
 drawCats();drawDishes();drawOrder();
